@@ -3,7 +3,7 @@ import { ageGroups } from '../data/ageGroups';
 import { useApp } from '../hooks/useApp';
 
 export const Header: React.FC = () => {
-  const { userProfile, setUserProfile } = useApp();
+  const { userProfile, setUserProfile, showMyGoals, setShowMyGoals } = useApp();
 
   const currentAgeGroup = ageGroups.find(group => group.id === userProfile?.ageGroup);
 
@@ -20,7 +20,7 @@ export const Header: React.FC = () => {
       <div className="container">
         <div className="header-content">
           <div className="logo-section">
-            <h1>🌸 Flourish</h1>
+            <h1>🌸 WeFlourish</h1>
             <p>Holistic Life Management</p>
           </div>
           <div className="user-section">
@@ -29,6 +29,12 @@ export const Header: React.FC = () => {
               <span className="age-group-name">{currentAgeGroup?.name}</span>
               <span className="age-range">({currentAgeGroup?.range})</span>
             </div>
+            <button
+              onClick={() => setShowMyGoals(!showMyGoals)}
+              className={`my-goals-btn${showMyGoals ? ' active' : ''}`}
+            >
+              ★ My Goals
+            </button>
             <button onClick={handleChangeAgeGroup} className="change-age-btn">
               Change
             </button>

@@ -8,6 +8,8 @@ export interface AppContextType {
   setSelectedCategory: (category: string) => void;
   selectedSubcategory: string;
   setSelectedSubcategory: (subcategory: string) => void;
+  showMyGoals: boolean;
+  setShowMyGoals: (show: boolean) => void;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);

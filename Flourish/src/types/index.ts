@@ -38,3 +38,22 @@ export interface UserProfile {
   ageGroup: string;
   preferences: string[];
 }
+
+export interface PersonalGoal {
+  id: string;
+  text: string;
+  completed: boolean;
+  createdAt: number;
+}
+
+export type GoalsMap = Record<string, PersonalGoal[]>;
+
+export interface GoalsContextType {
+  goalsMap: GoalsMap;
+  addGoal: (categoryId: string, subcategoryId: string, text: string) => void;
+  deleteGoal: (categoryId: string, subcategoryId: string, goalId: string) => void;
+  toggleGoal: (categoryId: string, subcategoryId: string, goalId: string) => void;
+  editGoal: (categoryId: string, subcategoryId: string, goalId: string, text: string) => void;
+  getGoalsForSubcategory: (categoryId: string, subcategoryId: string) => PersonalGoal[];
+  getAllGoals: () => Array<PersonalGoal & { categoryId: string; subcategoryId: string }>;
+}

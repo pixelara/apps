@@ -19,7 +19,11 @@ export const AgeSelector: React.FC = () => {
   return (
     <div className="age-selector">
       <div className="container">
-        <h1>Welcome to Flourish</h1>
+        <div className="age-selector-logo">
+          <span className="age-selector-logo-icon">🌸</span>
+          <span className="age-selector-logo-name">WeFlourish</span>
+        </div>
+        <h1>Welcome to WeFlourish</h1>
         <p>Your holistic life management companion</p>
         <h2>Select Your Age Group</h2>
         <div className="age-groups">
