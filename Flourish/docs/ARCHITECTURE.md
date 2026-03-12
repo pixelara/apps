@@ -1,6 +1,6 @@
 # Flourish — Architecture Documentation
 
-> Auto-generated from source. Update with `/update-docs` after code changes.
+> Auto-generated from source. Update with `/update-docs` after code changes. Last updated: 2026-03-11.
 
 ## Table of Contents
 
@@ -26,7 +26,7 @@ Flourish is a **React 19 + TypeScript + Vite** application delivering age-specif
 | Framework | React 19.1.1 |
 | Language | TypeScript ~5.8.3 |
 | Build Tool | Vite 7.1.7 |
-| State Management | React Context + Custom Hook |
+| State Management | React Context + Custom Hooks (App + Goals) |
 | Age Groups | 6 (Teens → Sixties+) |
 | Categories | 4 |
 | Subcategories | 8 (2–3 per category) |
@@ -55,18 +55,22 @@ Flourish/
     │   └── index.ts                   # All TypeScript interfaces
     ├── contexts/
     │   ├── AppContextDefinition.ts    # Context interface (AppContextType)
-    │   └── AppContext.tsx             # AppProvider implementation
+    │   ├── AppContext.tsx             # AppProvider implementation (localStorage-persisted)
+    │   ├── GoalsContextDefinition.ts  # Context interface (GoalsContextType)
+    │   └── GoalsContext.tsx           # GoalsProvider implementation (localStorage-persisted)
     ├── hooks/
-    │   └── useApp.ts                  # Safe context consumer hook
+    │   ├── useApp.ts                  # Safe AppContext consumer hook
+    │   └── useGoals.ts               # Safe GoalsContext consumer hook
     ├── data/
     │   ├── ageGroups.ts               # Age group definitions (6 entries)
     │   └── categories.ts             # All categories, subcategories, guidance
     └── components/
         ├── AgeSelector.tsx            # Initial age group selection screen
-        ├── Header.tsx                 # Sticky header with user info
+        ├── Header.tsx                 # Sticky header with user info + My Goals toggle
         ├── CategoryNav.tsx            # Horizontal category tab navigation
         ├── SubcategoryList.tsx        # Subcategory card grid
-        └── GuidanceView.tsx          # Detailed guidance display
+        ├── GuidanceView.tsx           # Detailed guidance display with goal management
+        └── MyGoalsView.tsx            # Aggregated view of all personal goals
 ```
 
 ---
@@ -134,6 +138,35 @@ interface UserProfile {
 }
 ```
 
+### `PersonalGoal`
+```typescript
+interface PersonalGoal {
+  id: string;          // crypto.randomUUID()
+  text: string;
+  completed: boolean;
+  createdAt: number;   // Date.now() timestamp
+}
+```
+
+### `GoalsMap`
+```typescript
+type GoalsMap = Record<string, PersonalGoal[]>;
+// Key format: `${categoryId}:${subcategoryId}`
+```
+
+### `GoalsContextType`
+```typescript
+interface GoalsContextType {
+  goalsMap: GoalsMap;
+  addGoal: (categoryId: string, subcategoryId: string, text: string) => void;
+  deleteGoal: (categoryId: string, subcategoryId: string, goalId: string) => void;
+  toggleGoal: (categoryId: string, subcategoryId: string, goalId: string) => void;
+  editGoal: (categoryId: string, subcategoryId: string, goalId: string, text: string) => void;
+  getGoalsForSubcategory: (categoryId: string, subcategoryId: string) => PersonalGoal[];
+  getAllGoals: () => Array<PersonalGoal & { categoryId: string; subcategoryId: string }>;
+}
+```
+
 ### `AppContextType`
 ```typescript
 interface AppContextType {
@@ -143,6 +176,8 @@ interface AppContextType {
   setSelectedCategory: (category: string) => void;
   selectedSubcategory: string;
   setSelectedSubcategory: (subcategory: string) => void;
+  showMyGoals: boolean;
+  setShowMyGoals: (show: boolean) => void;
 }
 ```
 
@@ -150,47 +185,64 @@ interface AppContextType {
 
 ## State Management
 
-The app uses a **three-file Context pattern** for clean separation of concerns:
+The app uses a **three-file Context pattern** (applied twice) for clean separation of concerns:
 
 ```
-AppContextDefinition.ts  →  defines the shape (interface)
-AppContext.tsx           →  implements the provider (state + setters)
-useApp.ts               →  exposes the hook (safe consumption)
+AppContextDefinition.ts   →  defines the App shape (interface)
+AppContext.tsx             →  implements AppProvider (state + localStorage)
+useApp.ts                 →  exposes the hook (safe consumption)
+
+GoalsContextDefinition.ts →  defines the Goals shape (interface)
+GoalsContext.tsx           →  implements GoalsProvider (state + localStorage)
+useGoals.ts               →  exposes the hook (safe consumption)
 ```
 
 ### AppProvider (`src/contexts/AppContext.tsx`)
 
 State variables and their defaults:
 
-| State | Type | Default |
-|-------|------|---------|
-| `userProfile` | `UserProfile \| null` | `null` |
-| `selectedCategory` | `string` | `'health'` |
-| `selectedSubcategory` | `string` | `''` |
+| State | Type | Default | Persisted |
+|-------|------|---------|-----------|
+| `userProfile` | `UserProfile \| null` | loaded from `localStorage` | Yes — key `flourish_age_group` |
+| `selectedCategory` | `string` | `'health'` | No |
+| `selectedSubcategory` | `string` | `''` | No |
+| `showMyGoals` | `boolean` | `false` | No |
+
+`setUserProfile` also resets `showMyGoals` to `false` on call.
+
+### GoalsProvider (`src/contexts/GoalsContext.tsx`)
+
+Manages a `GoalsMap` (keyed by `categoryId:subcategoryId`) that is fully persisted to `localStorage` (key: `flourish_user_goals`) via a `useEffect`. Provides CRUD operations: `addGoal`, `deleteGoal`, `toggleGoal`, `editGoal`, plus `getGoalsForSubcategory` and `getAllGoals`.
 
 ### `useApp` Hook (`src/hooks/useApp.ts`)
 
-Wraps `useContext(AppContext)` and throws an error if called outside `<AppProvider>`. All components use this hook — none accept props.
+Wraps `useContext(AppContext)` and throws an error if called outside `<AppProvider>`.
+
+### `useGoals` Hook (`src/hooks/useGoals.ts`)
+
+Wraps `useContext(GoalsContext)` and throws an error if called outside `<GoalsProvider>`.
 
 ---
 
 ## Components
 
-All components are **props-free** and consume state exclusively via `useApp()`.
+All components are **props-free** and consume state exclusively via `useApp()` and/or `useGoals()`.
 
 ### Component Hierarchy
 
 ```
 <App>
 └── <AppProvider>
-    └── <AppContent>
-        ├── <AgeSelector>        (rendered when userProfile === null)
-        └── <div className="app">
-            ├── <Header>
-            ├── <CategoryNav>
-            └── (one of):
-                ├── <SubcategoryList>  (when selectedSubcategory === '')
-                └── <GuidanceView>     (when selectedSubcategory !== '')
+    └── <GoalsProvider>
+        └── <AppContent>
+            ├── <AgeSelector>        (rendered when userProfile === null)
+            └── <div className="app">
+                ├── <Header>
+                └── (one of):
+                    ├── <MyGoalsView>      (when showMyGoals === true)
+                    └── (with <CategoryNav>):
+                        ├── <SubcategoryList>  (when selectedSubcategory === '')
+                        └── <GuidanceView>     (when selectedSubcategory !== '')
 ```
 
 ### `AgeSelector` (`src/components/AgeSelector.tsx`)
@@ -203,8 +255,10 @@ All components are **props-free** and consume state exclusively via `useApp()`.
 ### `Header` (`src/components/Header.tsx`)
 
 - **Returns `null`:** When `userProfile === null`
-- **Shows:** App name, current age group name + range
-- **Action:** "Change" button calls `setUserProfile(null)` to reset
+- **Shows:** App name ("🌸 WeFlourish"), current age group name + range
+- **Actions:**
+  - "★ My Goals" button toggles `showMyGoals` (highlighted when active)
+  - "Change" button calls `setUserProfile(null)` to reset age group
 
 ### `CategoryNav` (`src/components/CategoryNav.tsx`)
 
@@ -227,7 +281,19 @@ All components are **props-free** and consume state exclusively via `useApp()`.
   - Recommendations list (always shown)
   - Tests & Screenings (shown if `testsToRun` exists)
   - Resources (shown if `resources` exists)
+  - My Goals section (via `useGoals`) for adding/managing personal goals
 - **Placeholder:** Shown if any selection is incomplete
+
+### `MyGoalsView` (`src/components/MyGoalsView.tsx`)
+
+- **Rendered when:** `showMyGoals === true`
+- **Consumes:** `useGoals()` for data, `useApp()` for navigation
+- **Shows:** All personal goals across every category, grouped by category › subcategory
+- **Actions:**
+  - Toggle goal complete/incomplete
+  - Delete goal
+  - Navigate to subcategory (sets `selectedCategory`, `setSelectedSubcategory`, closes My Goals view)
+- **Empty state:** Prompt to browse guidance and add goals
 
 ---
 
@@ -333,15 +399,18 @@ npm run preview  → Preview production build
 ## Application Flow
 
 ```
-1. App mounts → userProfile === null
-2. AgeSelector shown → user picks age group
-3. setUserProfile({ ageGroup: 'teens', preferences: [] })
+1. App mounts → userProfile loaded from localStorage (or null)
+2. If null: AgeSelector shown → user picks age group
+3. setUserProfile({ ageGroup: 'teens', preferences: [] }) → persisted to localStorage
 4. Main layout shown: Header + CategoryNav + SubcategoryList
 5. Default category: 'health'
 6. User clicks category tab → setSelectedCategory() + reset subcategory
 7. User clicks subcategory card → setSelectedSubcategory()
-8. GuidanceView shown with age-matched content
-9. User clicks "Change" in Header → setUserProfile(null) → back to step 2
+8. GuidanceView shown with age-matched content + personal goals section
+9. User adds a goal → stored in GoalsMap, persisted to localStorage
+10. User clicks "★ My Goals" in Header → showMyGoals = true → MyGoalsView shown
+11. User clicks subcategory link in MyGoalsView → navigates back to GuidanceView
+12. User clicks "Change" in Header → setUserProfile(null) → localStorage cleared → back to step 2
 ```
 
 ---
